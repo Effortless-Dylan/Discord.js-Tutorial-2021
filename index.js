@@ -1,9 +1,26 @@
 const Discord = require('discord.js');
 const client = new Discord.Client();
 const { token } = require('./config.json');
-const prefix = '/'
+client.commands = new Discord.Collection();
+const fs = require('fs')
 
+fs.readdir("./commands/", (err, files) => {
 
+    if (err) console.log(err);
+
+    let jsfile = files.filter(f => f.split(".").pop() === "js");
+    if (jsfile.length <= 0) {
+        console.log("Couldn't find commands.");
+        return;
+    }
+
+    jsfile.forEach((f, i) => {
+        let props = require(`./commands/${f}`);
+        console.log(`${f} loaded!`);
+        client.commands.set(props.help.name, props);
+    });
+
+});
 
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
@@ -11,24 +28,17 @@ client.on('ready', () => {
 
 client.on('message', async message => {
 
-    const args = message.content.slice(prefix.length).trim().split(" ");
-    const command = args.shift().toLowerCase()
+    if (message.author.bot) return;
+    if (message.channel.type === 'dm') return;
+    let content = message.content.split(" ");
+    let command = content[0];
+    let args = content.slice(1);
+    let prefix = '/';
 
-    if(command === 'ping'){
-        const msg = await message.channel.send('Pinging...')
-        msg.delete()
 
-        const embed = new Discord.MessageEmbed()
-        .setTitle('Ping')
-        .setColor('#00FFFF')
-        .addField('Ping', `\`${Math.floor(msg.createdAt - message.createdAt)}ms\``)
-        .addField('API latency', `\`${Math.round(client.ws.ping)}ms\``)
-        .setTimestamp()
-        .setFooter('Requested by ' + message.author.id, message.author.displayAvatarURL())
-
-        message.channel.send(embed)
-    }
-
+    //checks if message contains a command and runs it
+    let commandfile = client.commands.get(command.slice(prefix.length));
+    if (commandfile) commandfile.run(client, message, args);
 
 });
 
